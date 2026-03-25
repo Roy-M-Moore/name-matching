@@ -20,7 +20,7 @@ if len(sys.argv) < 2:
 stest_path = sys.argv[1]
 
 # Read data
-G = pd.read_csv('G.csv', sep = '|')
+G = pd.read_csv('input/G.csv', sep = '|')
 STest = pd.read_csv(stest_path, sep='|')
 
 # Validate STest format
@@ -31,7 +31,6 @@ if not {'test_index', 'name'}.issubset(STest.columns):
 # Clean company names
 G["name_clean"] = G["name"].apply(preprocessing.preprocess_company_name)
 STest["name_clean"] = STest["name"].apply(preprocessing.preprocess_company_name)
-STest = STest.iloc[0:5000] ###########/////////////// TESTING ONLY
 
 # Identify problematic entries
 G_problems = ((G['name_clean'].str.len() == 0) | (G['name_clean'].duplicated(keep=False)))
@@ -50,7 +49,7 @@ S_tfidf = tfidf.transform(STest["name_clean"])
 
 # Fit nearest neighbors model for blocking
 enn = NearestNeighbors(
-    n_neighbors=20,
+    n_neighbors=25,
     metric='cosine',
     algorithm='brute',
     n_jobs=-1
@@ -95,9 +94,10 @@ feature_cols = [
 
 X = test_df[feature_cols]
 
-# PLACEHOLDER: load trained model here
-xgb_model = joblib.load('models/trained_model.pkl') ########## change to .joblib latter
+# Load trained model
+xgb_model = joblib.load('models/trained_model.pkl') ###################################
 
+# Get predicted probabilities
 xgb_probs = xgb_model.predict_proba(X)[:,1]
 
 

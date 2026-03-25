@@ -1,3 +1,4 @@
+import sys
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -5,6 +6,7 @@ from sklearn.neighbors import NearestNeighbors
 import joblib
 from xgboost import XGBClassifier
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.metrics import roc_auc_score
 
 from src import preprocessing
 from src import feature_engineering
@@ -16,12 +18,13 @@ start_time = time.time()
 
 ### PRE-PROCESSING
 # Read data
-G = pd.read_csv('G.csv', sep = '|')
-STrain = pd.read_csv('STrain.csv', sep = '|')
+G = pd.read_csv('input/G.csv', sep = '|')
+STrain = pd.read_csv('input/STrain.csv', sep = '|')
 
 # Clean company names
 G["name_clean"] = G["name"].apply(preprocessing.preprocess_company_name)
 STrain["name_clean"] = STrain["name"].apply(preprocessing.preprocess_company_name)
+STrain = STrain.iloc[0:10000] ###########/////////////// TESTING ONLY
 
 # Identify problematic entries
 G_problems = ((G['name_clean'].str.len() == 0) | (G['name_clean'].duplicated(keep=False)))
@@ -41,12 +44,12 @@ G_tfidf = tfidf.fit_transform(G_valid["name_clean"])
 S_tfidf = tfidf.transform(STrain["name_clean"])
 
 # Save objects for re-use during inference
-joblib.dump(tfidf, 'models/tfidf_vectorizer.joblib')
-joblib.dump(G_tfidf, 'models/G_tfidf.joblib')
+# joblib.dump(tfidf, 'models/tfidf_vectorizer.joblib') ###################################
+# joblib.dump(G_tfidf, 'models/G_tfidf.joblib') ###################################
 
 # Fit nearest neighbors model for blocking
 enn = NearestNeighbors(
-    n_neighbors=20,
+    n_neighbors=50,
     metric='cosine',
     algorithm='brute',
     n_jobs=-1
@@ -64,6 +67,14 @@ candidates = candidate_generation.build_candidates(
     distances=distances,
     include_labels=True
 )
+
+# Calculate & print blocking recall
+recall = candidates[candidates["match"] == 1].shape[0] / \
+         STrain[STrain["company_id"] != -1].shape[0]
+
+print(f"Blocking recall: {recall}")
+
+sys.exit(1) ######### STOP AFTER BLOCKING FOR NOW ############
 
 ### FEATURE ENGINEERING
 feature_df = candidates.apply(
@@ -125,6 +136,8 @@ joblib.dump(xgb_model, 'models/trained_model.joblib')
 # Predict probabilities on the training set (for threshold tuning)
 xgb_probs = xgb_model.predict_proba(X)[:,1]
 
+# Print training ROC_AUC
+print(f"Training set ROC_AUC: {roc_auc_score(y, xgb_probs)}")
 
 ### THRESHOLD TUNING
 train_df["match_prob"] = xgb_probs
@@ -151,11 +164,16 @@ cost_df = pd.DataFrame(
     columns=["threshold","cost","fp","fn","tp"]
 )
 
+# Get optimal threshold that minimizes cost
 best_row = cost_df.loc[cost_df["cost"].idxmin()]
 t_star = best_row["threshold"]
 
 # Save the optimal threshold for inference
 joblib.dump(t_star, 'models/threshold.joblib')
+
+# Print the optimal threshold and training cost at that threshold
+print(f"Optimal threshold (t*): {t_star}")
+print(f"Cost at optimal threshold: {best_row['cost']}")
 
 end_time = time.time()
 print(f"\nTotal runtime: {(end_time - start_time)/60:.2f} minutes", flush=True)
