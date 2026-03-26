@@ -107,7 +107,7 @@ Normalizes company names through:
 
 Reduces the search space by:
 - TF-IDF vectorization with character n-grams (3-5 grams)
-- k-Nearest Neighbors (k=50 for training, k=25 for inference) using cosine similarity
+- k-Nearest Neighbors (k=25 for inference) using cosine similarity
 - Only generates candidates from the top-k most similar reference names
 
 ### 3. Feature Engineering (feature_engineering.py)
@@ -132,43 +132,18 @@ Computes 8 similarity features for each candidate pair:
 - **Cost function**: `5 × (false positives) + 1 × (false negatives)`
 - **Prediction logic**: For each test record, select the highest-probability candidate; assign match if probability ≥ threshold
 
-## Data Format
-
-### Expected Input Files
-
-All files are pipe-separated (`|`):
-
-**G.csv** (reference companies):
-```
-company_id|name
-1|Microsoft Corporation
-2|Apple Inc
-...
-```
-
-**STrain.csv** (training data):
-```
-train_index|name|company_id
-1|Microsft Corp|-1
-2|Apple Computer|2
-...
-```
-- `company_id = -1` means no match in G
-
-**STest.csv** (inference data):
-```
-test_index|name
-1|Google LLC
-2|Amazn Inc
-...
-```
 
 ## Performance Considerations
 
-- **Blocking recall**: Typically ~85%, suggesting there is room for improvement
-- **Runtime**: ~1 minute per 10K records [HP Elitebook 845 G10: Ryzen 5 PRO 7545U (3.20GHz) / 32 GB RAM]
-- **Memory**: TF-IDF matrix for G.csv is pre-computed and loaded during inference
+- **Blocking recall**: Typically ~85%
+- **XGBoost ROC AUC**: Typically 98-99% on the training set
+- **Runtime**: ~1 minute per 10K records [tested on HP Elitebook 845 G10: Ryzen 5 PRO 7545U (3.20GHz) / 32 GB RAM]
+- **Threshold value**: Threshold optimization typically results in a probability threshold of
+- **Cost value**: Optimized cost value on the final training data run was 58599
 
-## Notes
+## Next areas of development
+- Adding custom cost function to match business cost (during model search)
+- Improve blocking recall: try multi-stage blocking, improved preprocessing, alternative distance metrics
+- Expand feature engineering (phonetic features showed marginal performance improvment)
 
 

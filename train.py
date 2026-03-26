@@ -24,7 +24,6 @@ STrain = pd.read_csv('input/STrain.csv', sep = '|')
 # Clean company names
 G["name_clean"] = G["name"].apply(preprocessing.preprocess_company_name)
 STrain["name_clean"] = STrain["name"].apply(preprocessing.preprocess_company_name)
-STrain = STrain.iloc[0:10000] ###########/////////////// TESTING ONLY
 
 # Identify problematic entries
 G_problems = ((G['name_clean'].str.len() == 0) | (G['name_clean'].duplicated(keep=False)))
@@ -44,12 +43,12 @@ G_tfidf = tfidf.fit_transform(G_valid["name_clean"])
 S_tfidf = tfidf.transform(STrain["name_clean"])
 
 # Save objects for re-use during inference
-# joblib.dump(tfidf, 'models/tfidf_vectorizer.joblib') ###################################
-# joblib.dump(G_tfidf, 'models/G_tfidf.joblib') ###################################
+joblib.dump(tfidf, 'models/tfidf_vectorizer.joblib')
+joblib.dump(G_tfidf, 'models/G_tfidf.joblib')
 
 # Fit nearest neighbors model for blocking
 enn = NearestNeighbors(
-    n_neighbors=50,
+    n_neighbors=25,
     metric='cosine',
     algorithm='brute',
     n_jobs=-1
@@ -68,13 +67,12 @@ candidates = candidate_generation.build_candidates(
     include_labels=True
 )
 
-# Calculate & print blocking recall
-recall = candidates[candidates["match"] == 1].shape[0] / \
-         STrain[STrain["company_id"] != -1].shape[0]
+# Calculate & print blocking recall (adjusting for unmatchable entries in G)
+matchable_mask = STrain["company_id"].isin(G_valid["company_id"]) | (STrain["company_id"] == -1)
+matchable_positives = STrain[matchable_mask & (STrain["company_id"] != -1)].shape[0]
+recall = candidates[candidates["match"] == 1].shape[0] / matchable_positives
 
 print(f"Blocking recall: {recall}")
-
-sys.exit(1) ######### STOP AFTER BLOCKING FOR NOW ############
 
 ### FEATURE ENGINEERING
 feature_df = candidates.apply(
@@ -117,7 +115,7 @@ param_dist = {
 
 search = RandomizedSearchCV(
     XGBClassifier(random_state=42),
-    param_dist, n_iter=50, cv=3, scoring='roc_auc', n_jobs=-1
+    param_dist, n_iter=100, cv=3, scoring='roc_auc', n_jobs=-1
 )
 
 search.fit(X, y)
@@ -152,7 +150,7 @@ best_candidates = (
 
 # Sweep thresholds to evaluate cost, FP, FN, TP at each value
 results = []
-thresholds = np.linspace(0,1,200)
+thresholds = np.linspace(0,1,500)
 
 for t in thresholds:
     # Compute cost and error counts for each threshold

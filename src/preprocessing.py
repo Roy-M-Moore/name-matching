@@ -67,6 +67,6 @@ def preprocess_company_name(name: str) -> str:
     
     name = basic_normalize(name)
     name = remove_legal_suffixes(name)
-    # name = remove_single_chars(name)
+    # name = remove_single_chars(name) # decreases blocking recall, so commented out for now
     
     return name

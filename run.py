@@ -19,6 +19,7 @@ if len(sys.argv) < 2:
 
 stest_path = sys.argv[1]
 
+### PRE-PROCESSING
 # Read data
 G = pd.read_csv('input/G.csv', sep = '|')
 STest = pd.read_csv(stest_path, sep='|')
@@ -95,7 +96,7 @@ feature_cols = [
 X = test_df[feature_cols]
 
 # Load trained model
-xgb_model = joblib.load('models/trained_model.pkl') ###################################
+xgb_model = joblib.load('models/trained_model.joblib')
 
 # Get predicted probabilities
 xgb_probs = xgb_model.predict_proba(X)[:,1]
