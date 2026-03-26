@@ -2,7 +2,14 @@
 
 A machine learning pipeline for entity resolution of company names. This system matches potentially misspelled or variant company names from a source dataset to a canonical reference dataset using TF-IDF blocking, feature engineering, and XGBoost classification.
 
-## Overview
+## Problem Framing
+This is a supervised binary classification problem for entity resolution based exclusively on name matching.
+
+- **Asymmetric misclassification cost**: The problem has a 5:1 cost ratio, where false positives (incorrect matches) are 5× more expensive than false negatives (missed matches). This reflects the business reality that incorrectly linking two distinct legal entities is more harmful than failing to identify a match.
+- **Precision over recall** : Given the asymmetric cost structure, the system prioritizes high precision over recall: it's better to leave a name unmatched than to link the wrong entities.
+- **Decision threshold**: Final linking decisions use an optimized probability threshold that minimizes the expected matching cost (5×FP + 1×FN) on the training set.
+
+## Project Overview
 
 The package implements a four-stage pipeline for fuzzy company name matching:
 
@@ -136,14 +143,12 @@ Computes 8 similarity features for each candidate pair:
 ## Performance Considerations
 
 - **Blocking recall**: Typically ~85%
-- **XGBoost ROC AUC**: Typically 98-99% on the training set
-- **Runtime**: ~1 minute per 10K records [tested on HP Elitebook 845 G10: Ryzen 5 PRO 7545U (3.20GHz) / 32 GB RAM]
-- **Threshold value**: Threshold optimization typically results in a probability threshold of
-- **Cost value**: Optimized cost value on the final training data run was 58599
+- **XGBoost ROC AUC**: Typically ~99% on the training set
+- **Inference Runtime**: ~1 minute per 10K records [tested on HP Elitebook 845 G10: Ryzen 5 PRO 7545U (3.20GHz) / 32 GB RAM]
+- **Threshold value**: Threshold optimization typically results in a probability threshold of ~.40
+- **Cost value**: Optimized cost value on the final training data run was ~41.5k
 
-## Next areas of development
-- Adding custom cost function to match business cost (during model search)
-- Improve blocking recall: try multi-stage blocking, improved preprocessing, alternative distance metrics
-- Expand feature engineering (phonetic features showed marginal performance improvment)
-
-
+## Potential Improvements
+- Improve blocking recall: explore multi-stage blocking, improved preprocessing, alternative distance metrics
+- Implement train/validation split for more robust threshold tuning
+- Integrate custom cost function into hyperparameter optimization (currently applied only at threshold selection)
