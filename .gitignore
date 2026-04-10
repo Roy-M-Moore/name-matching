@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 notebooks/dev.ipynb
 notebooks/exploration.ipynb
+models/
+output/
